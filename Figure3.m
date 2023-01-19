@@ -17,10 +17,10 @@ if length(par.NTPdB_list) > 1
 end
 legend(par.precoder,'FontSize',12,'Interpreter','Latex','location','northeast')
 set(gca,'FontSize',12);
-if par.save
+%if par.save
     % save eps figure (in color and with a reasonable bounding box)
-    print(h,'-loose','-depsc',[ par.simName '_' num2str(par.runId) ])
-end
+%    print(h,'-loose','-depsc',[ par.simName '_' num2str(par.runId) ])
+%end
 clear;
 load('ber2.mat','par','res');
 marker_style = {'kx-','bo:','rs--','mv-.','gp-.','bs--','y*--'};
@@ -41,8 +41,8 @@ if length(par.NTPdB_list) > 1
 end
 legend(par.precoder,'FontSize',12,'Interpreter','Latex','location','northeast')
 set(gca,'FontSize',12);
-if par.save
+%if par.save
     % save eps figure (in color and with a reasonable bounding box)
-    print(h,'-loose','-depsc',[ par.simName '_' num2str(par.runId) ])
-end
+    %print(h,'-loose','-depsc',[ par.simName '_' num2str(par.runId) ])
+%end
  set(gca,'xLim',[-10 40]);
