@@ -1,4 +1,4 @@
-load('ber1.mat','par','res');
+load('ber3.mat','par','res');
 marker_style = {'kx-','bo:','rs--','mv-.','gp-.','bs--','y*--'};
 h = figure(1);
 for d=1:length(par.precoder)
@@ -22,7 +22,7 @@ set(gca,'FontSize',12);
 %    print(h,'-loose','-depsc',[ par.simName '_' num2str(par.runId) ])
 %end
 clear;
-load('ber2.mat','par','res');
+load('ber1.mat','par','res');
 marker_style = {'kx-','bo:','rs--','mv-.','gp-.','bs--','y*--'};
 h = figure(1);
 for d=1:length(par.precoder)

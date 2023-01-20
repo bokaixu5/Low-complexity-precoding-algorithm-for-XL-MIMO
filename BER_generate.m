@@ -1,3 +1,6 @@
+%Initialization
+close all;
+clearvars;
 % -- set up default/custom parameters
     disp('using default simulation settings and parameters...')
     % set default simulation parameters
@@ -85,7 +88,39 @@ par.bits = de2bi(0:length(par.symbols)-1,par.bps,'left-msb');
 
 % track simulation time
 time_elapsed = 0;
-
+j=sqrt(-1);
+rng(1);
+%% Simulation Parameters
+M=256; % The number of total antennas
+K=16; % The number of users
+D_vec=2:2:60; % The number of active antennas per user
+rho_dB=10; % SNR in dB
+rho=10^(rho_dB/10);
+P=1; % Total power
+Normalization=2; % Normalization type (Possible values 1: Nromalization 1, 2: Normalization 2)
+%
+ens=1e2; % Independent channel realizations for ensemble averaging
+%% Main loop (over the number of active antennas D)
+for ii=1:length(D_vec)
+    D=D_vec(ii);
+    %% Best case
+    setDbest=[ones(D,K);zeros(M-D,K)]; % Initializing active antenna indices for best case
+    for kk=1:K
+        setDbest(:,kk)=circshift(setDbest(:,kk),(kk-1)*D); % Circulant shifts to obtain the active antenna indices for best case
+    end
+    %% Worst case
+    setDworst=[ones(D,K);zeros(M-D,K)]; % active antenna indices for worst case
+    %% Loop for ensemble averaging   
+        %% Simulation Stationary
+        H=1/sqrt(2)*(randn(M,K)+j*randn(M,K)); % The channel matrix for stationary case
+        if(Normalization==1)
+            Hbest=H.*setDbest*sqrt(M/D); % The channel matrix for the best case
+            Hworst=H.*setDworst*sqrt(M/D); % The channel matrix for the worst case
+        elseif(Normalization==2)
+            Hbest=H.*setDbest; % The channel matrix for the best case
+            Hworst=H.*setDworst; % The channel matrix for the worst case
+        end
+end    
 % -- start simulation
 
 % - initialize result arrays (detector x normalized transmit power)
@@ -126,19 +161,17 @@ for t=1:par.trials
     % you can add your own channel model here
     switch par.channel
         case 'rayleigh'
-             load("h_save.mat","H_best_nor1","H_best_nor2","H_worst_nor1","H_worst_nor2")
             a=0.1;
-            tau=0.6; 
+            tau=0.3; 
             Phi=a.^toeplitz([0:par.B-1]);
             sqrtmPhi = sqrtm(Phi);
             %H = sqrt(0.5)*(randn(par.U,par.B)+1i*randn(par.U,par.B));
             W=(randn(par.B,par.U)+1i*randn(par.B,par.U))/sqrt(2*par.U);
-    Hn=sqrtmPhi*H_best_nor2;
+    Hn=sqrtmPhi*Hbest;
     error_channel=(randn(par.B,par.U)+1i*randn(par.B,par.U))/sqrt(2*par.U);
     H = (sqrt(1-tau^2)*Hn + tau*sqrtmPhi*error_channel)';
         otherwise
-            load("h_save.mat","H_best_nor1","H_best_nor2","H_worst_nor1","H_worst_nor2")
-            H=H_best_nor2';
+            H=Hbest';
     end
 
     % algorithm loop
@@ -276,7 +309,7 @@ numRealizations = 20;
 %Go through all the bounds
 for b = 1:2
     %Run RKA
-    V_RKA = functionRKA(par.B,par.U,1,numRealizations,numIterations(1,b,2),H',updateSchedule(2));
+    V_RKA = functionRKA(par.B,par.U,1,numRealizations,numIterations,H',updateSchedule(2));
 end
 P=(reshape(V_RKA(:,3,:),[par.B par.U]));
 betainv = sqrt(par.rho2)/sqrt(par.Es*trace(P*P'));
@@ -289,11 +322,10 @@ function [X, beta] = RKA2(par,S,H,N0)
 numIterations = 100;
 updateSchedule = ["power","uniform","aa"];
 numRealizations = 20;
-numIterations = meanConv;
 %Go through all the bounds
 for b = 1:2
     %Run RKA
-    V_RKA = functionRKA(par.B,par.U,1,numRealizations,numIterations(1,b,2),H',updateSchedule(1));
+    V_RKA = functionRKA(par.B,par.U,1,numRealizations,numIterations,H',updateSchedule(1));
 end
 P=(reshape(V_RKA(:,3,:),[par.B par.U]));
 betainv = sqrt(par.rho2)/sqrt(par.Es*trace(P*P'));
