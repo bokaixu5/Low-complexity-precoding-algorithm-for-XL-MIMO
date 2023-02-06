@@ -14,7 +14,7 @@ clearvars;
     par.NTPdB_list = -10:2:40;  % list of normalized transmit power [dB] values
     par.rho2 = 1;               % rho^2=1 (should NOT affect your results!)
     par.precoder = {'RZF','rKA','SwoR-rKA'};
-    par.channel = 'rayleigh';   % channel model 'rayleigh'
+    par.channel = 'Imperfect CSI XL-MIMO Channel';   % channel model 'Imperfect CSI XL-MIMO Channel'
     par.betaest = 'pilot';      % 'pilot'
     par.save = false;            % save results (true,false)
     par.plot = true;            % plot results (true,false)
@@ -160,7 +160,7 @@ for t=1:par.trials
 
     % you can add your own channel model here
     switch par.channel
-        case 'rayleigh'
+        case 'Imperfect CSI XL-MIMO Channel'
             a=0.1;
             tau=0.3; 
             Phi=a.^toeplitz([0:par.B-1]);
@@ -171,6 +171,7 @@ for t=1:par.trials
     error_channel=(randn(par.B,par.U)+1i*randn(par.B,par.U))/sqrt(2*par.U);
     H = (sqrt(1-tau^2)*Hn + tau*sqrtmPhi*error_channel)';
         otherwise
+            %Perfect CSI XL-MIMO Channel
             H=Hbest';
     end
 
@@ -369,150 +370,4 @@ X = betainv*(P*S);
 % average scaling over signals
 beta = 1/betainv;
 
-end
-%% Zero-forcing (ZF) beamforming
-function [X, beta] = MMSE(par,S,H,N0)
-
-% transmitted signal
-P = H'*inv(H*H'+N0/par.rho2*eye(par.U));
-betainv = sqrt(par.rho2)/sqrt(par.Es*trace(P*P'));
-X = betainv*(P*S);
-
-% average scaling over signals
-beta = 1/betainv;
-
-end
-
-% ZF pseudo inverse
-function Hinv = zfinv(par,H)
-[U,S] = size(H);
-if S>=U
-    Hinv = H'/(H*H');
-else
-    Hinv = (H'*H)\H';
-end
-end
-
-
-%% Centralized Wiener-filter (WF) beamforming
-function [X, beta] = WF(par,S,H,N0)
-
-% compute regularized inverse
-Ainv = rpinv(par,H,par.U*N0/par.rho2);
-
-% calculate precoding factor efficiently
-beta = sqrt((par.Es/par.rho2)*(trace(Ainv)-sum(abs(Ainv(:)).^2)*(par.U*N0/par.rho2)));
-
-% apply inverse to data in centralized manner
-if par.B>=par.U
-    X = (1/beta)*(H'*(Ainv*S));
-else
-    X = (1/beta)*(Ainv*(H'*S));
-end
-end
-% Wiener filter (WF) regularized pseudo inverse
-function Ainv = rpinv(par,H,reg)
-[U,S] = size(H);
-if S>=U
-    Ainv = inv(H*H'+(reg)*eye(par.U));
-else
-    Ainv = inv(H'*H+(reg)*eye(par.S));
-end
-end
-%% Partially-Decentralized Wiener-filter (WF) beamforming
-function [X, beta] = PD_WF(par,S,H,N0)
-% decentralized gram matrix computation and localized averaging
-Gc = zeros(par.U,par.U);
-for cc=1:par.C
-    % calculate local Gram matrix
-    Hc(:,:,cc) = H(:,(cc-1)*par.S+1:cc*par.S);
-    % average among clusters (can be done in a tree-like fashion)
-    Gc = Gc + Hc(:,:,cc)*Hc(:,:,cc)';
-end
-% compute whitening filter at centralized node
-Ainv = inv(Gc+(par.U*N0/par.rho2)*eye(par.U));
-% calculate precoding factor efficiently
-beta = sqrt((par.Es/par.rho2)*(trace(Ainv)-sum(abs(Ainv(:)).^2)*(par.U*N0/par.rho2)));
-% whiten transmit signals
-Z = (1/beta)*(Ainv*S);
-% perform decentralized MRT with whitened signals
-for cc=1:par.C
-    X((cc-1)*par.S+1:cc*par.S,:) = Hc(:,:,cc)'*Z;
-end
-
-end
-%% Fully-Decentralized Wiener-filter (WF) beamforming
-function [X, beta] = FD_WF(par,S,H,N0)
-
-%initialization
-stomp = par.FD_WF.stomp;
-
-% perform fully decentralized WF precoding
-for cc=1:par.C
-
-    % calculate local precoding matrix
-    Hc = H(:,(cc-1)*par.S+1:cc*par.S);
-    Ainvc = rpinv(par,Hc,stomp*par.U*N0/par.rho2);
-    betac(cc,1) = sqrt((par.Es/(par.rho2/par.C))*(trace(Ainvc)-sum(abs(Ainvc(:)).^2)*(stomp*par.U*N0/(par.rho2))));
-
-    %betainv(cc,1) = sqrt(par.rho2/par.C)/sqrt(par.Es*trace(Pc*Pc'));
-
-    if par.S>=par.U
-        X((cc-1)*par.S+1:cc*par.S,:) = (1/betac(cc,1))*(Hc'*(Ainvc*S));
-    else
-        X((cc-1)*par.S+1:cc*par.S,:) = (1/betac(cc,1))*(Ainvc*(Hc'*S));
-    end
-
-end
-% exact beta is hard to compute; just do nothing smart and throw some NaNs
-beta = NaN;
-
-end
-%% decentralized precoder, ADMM version taken from our old journal paper
-function [X,beta] = DP_legacy(par,S,H,N0)
-
-%  -- initialize
-delta = par.DP_legacy.delta;
-gamma = par.DP_legacy.gamma;
-maxiter = par.DP_legacy.maxiter;
-
-H_c = zeros(par.U,par.S,par.C);
-AinvH = zeros(par.S,par.U,par.C);
-
-% -- preprocessing
-for c=1:par.C
-    H_c(:,:,c) = H(:,par.S*(c-1)+1:par.S*c); % get the appropriate part of H
-    AinvH(:,:,c) = (H_c(:,:,c)'*H_c(:,:,c) + (1/delta)*(par.U*N0/par.rho2)*eye(par.S))\H_c(:,:,c)';
-end
-for tt=1:par.T
-    % initialize running variables
-    lambda_c = zeros(par.U,par.C);
-    x_c = zeros(par.S,par.C);
-    w_c = zeros(par.U,par.C);
-    Hx_c = zeros(par.U,par.C);
-    s = S(:,tt);
-    % important for fast convergence (reasonable initial guess)
-    z_c = max(par.U/par.B,1/par.C)*s*ones(1,par.C);
-    % -- start iteration
-    for ll = 1:maxiter
-        % cluster-wise equalization
-        for c=1:par.C
-            x_c(:,c) = AinvH(:,:,c)*(z_c(:,c) + lambda_c(:,c));
-            Hx_c(:,c) = H_c(:,:,c)*x_c(:,c);
-            w_c(:,c) = (Hx_c(:,c)-lambda_c(:,c));
-        end
-        % consensus step
-        w_avg = 1/(par.C*delta+delta^2)*(par.C*s+delta*sum(w_c,2));
-        % cluster-wise update
-        for c=1:par.C
-            z_c(:,c) = (1/delta)*(s+delta*w_c(:,c))-w_avg;
-            lambda_c(:,c) = lambda_c(:,c) - gamma*(Hx_c(:,c)-z_c(:,c));
-        end
-    end
-    X(:,tt) = x_c(:); % vectorize output
-end
-% instantaneous power normalization
-X = X*(sqrt(par.rho2)/sqrt(sum(abs(X(:)).^2)/par.T));
-% exact beta is hard to compute; just do nothing smart and throw some NaNs
-beta = NaN;
 end
