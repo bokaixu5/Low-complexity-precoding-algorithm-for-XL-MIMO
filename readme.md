@@ -1,6 +1,8 @@
 This simulation code package is mainly used to reproduce the results of the following paper [1]:
 
-[1] Xu, Bokai, Zhe Wang, Huahua Xiao, Jiayi Zhang, Bo Ai and Derrick Wing Kwan Ng. “Low-Complexity Precoding for Extremely Large-Scale MIMO Over Non-Stationary Channels.” in Proc. IEEE International Conference on Communications (ICC), to appear, 2023. Available on:https://arxiv.org/abs/2302.00847
+[1] Xu, Bokai, Zhe Wang, Huahua Xiao, Jiayi Zhang, Bo Ai and Derrick Wing Kwan Ng. “Low-Complexity Precoding for Extremely Large-Scale MIMO Over Non-Stationary Channels.” in Proc. IEEE International Conference on Communications (ICC), to appear, 2023. 
+
+Available on:https://arxiv.org/abs/2302.00847
 
 *********************************************************************************************************************************
 If you use this simulation code package in any way, please cite the original paper [1] above. 
